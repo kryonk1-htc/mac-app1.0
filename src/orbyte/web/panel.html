@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ORBYTE</title>
+<style>
+  :root{
+    --deep:#03102F; --panel:#0C1B35; --panel-2:#0A1730;
+    --line:#1E4B7A; --bright:#32B9FF;
+    --cyan:#22D7FF; --blue:#137BFF;
+    --green:#39E8B4; --red:#FF526B; --warn:#FFB648;
+    --text:#DFF3FF; --text-2:#8FB4D4; --text-3:#5C7FA3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+  html,body{height:100%}
+  body{
+    font-family:"Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(120% 80% at 18% 0%, #16406F 0%, transparent 55%),
+      radial-gradient(90% 60% at 100% 100%, #0B2A54 0%, transparent 60%),
+      linear-gradient(160deg,#061A38 0%, #03102F 55%, #02081C 100%);
+    display:flex; align-items:stretch; justify-content:center;
+    padding:18px; overflow:hidden;
+    user-select:none;
+  }
+  /* 背景流动光带：静止但缓慢呼吸，避免整块背景太死 */
+  body::before{
+    content:""; position:fixed; inset:-30%;
+    background:
+      radial-gradient(closest-side, rgba(34,215,255,.16), transparent 70%) 26% 12%/46% 34% no-repeat,
+      radial-gradient(closest-side, rgba(19,123,255,.20), transparent 72%) 84% 78%/52% 40% no-repeat,
+      radial-gradient(closest-side, rgba(90,170,255,.12), transparent 70%) 60% 40%/40% 30% no-repeat;
+    filter:blur(38px); animation:drift 22s ease-in-out infinite alternate;
+    pointer-events:none;
+  }
+  @keyframes drift{from{transform:translate3d(-1.5%,-1%,0) scale(1)}to{transform:translate3d(2%,1.5%,0) scale(1.04)}}
+
+  .shell{
+    position:relative; width:100%; max-width:780px; height:100%;
+    display:flex; flex-direction:column;
+    border-radius:26px;
+    background:linear-gradient(168deg, rgba(14,32,60,.97) 0%, rgba(9,22,44,.96) 48%, rgba(6,16,36,.97) 100%);
+    border:1.5px solid rgba(50,185,255,.42);
+    box-shadow:
+      0 0 0 1px rgba(11,32,64,.9) inset,
+      0 26px 70px rgba(0,6,20,.62),
+      0 0 42px rgba(34,215,255,.14);
+    overflow:hidden;
+    animation:enter .34s cubic-bezier(.16,.84,.32,1) both;
+    transform-origin:100% 100%;
+  }
+  @keyframes enter{from{opacity:0;transform:translateY(14px) scale(.965)}to{opacity:1;transform:none}}
+
+  /* 顶部一条极细的金属高光，玻璃质感的关键 */
+  .shell::after{
+    content:""; position:absolute; left:8%; right:8%; top:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(200,240,255,.85),transparent);
+  }
+
+  header{display:flex;align-items:center;gap:12px;padding:20px 22px 14px}
+  .logo{
+    width:34px;height:34px;border-radius:50%;flex:0 0 auto;
+    background:
+      radial-gradient(circle at 34% 30%, #DBF6FF 0%, #6FCBFF 22%, #1D7BD8 46%, #0B2F63 72%, #041127 100%);
+    box-shadow:0 0 16px rgba(34,215,255,.55), 0 0 26px rgba(19,123,255,.3);
+  }
+  .title{font-size:16px;font-weight:700;letter-spacing:.5px}
+  .sub{font-size:11.5px;color:var(--text-3);margin-top:2px}
+  .grow{flex:1}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11.5px;color:var(--text-2);
+    padding:5px 11px;border-radius:999px;
+    background:rgba(19,123,255,.10);border:1px solid rgba(50,185,255,.26);
+  }
+  .dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green);animation:pulse 2.2s ease-in-out infinite}
+  .dot-live.off{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .dot-live.bad{background:var(--red);box-shadow:0 0 8px var(--red)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .tabs{display:flex;gap:6px;padding:0 22px 12px}
+  .tab{
+    font-size:12.5px;color:var(--text-2);padding:6px 14px;border-radius:9px;
+    border:1px solid transparent;cursor:pointer;transition:.18s;
+  }
+  .tab:hover{background:rgba(50,185,255,.08)}
+  .tab.on{
+    color:#EAF9FF;background:linear-gradient(180deg,rgba(19,123,255,.32),rgba(19,123,255,.16));
+    border-color:rgba(50,185,255,.45);box-shadow:0 0 16px rgba(34,215,255,.16) inset;
+  }
+  .tab .n{color:var(--text-3);margin-left:5px;font-size:11px}
+
+  .list{flex:1;overflow-y:auto;padding:2px 14px 8px}
+  .list::-webkit-scrollbar{width:6px}
+  .list::-webkit-scrollbar-thumb{background:rgba(50,185,255,.28);border-radius:3px}
+
+  .row{
+    display:flex;align-items:center;gap:12px;
+    padding:13px 12px;margin:6px 0;border-radius:14px;
+    background:linear-gradient(180deg,rgba(16,38,70,.55),rgba(10,24,46,.5));
+    border:1px solid rgba(30,75,122,.55);
+    transition:transform .16s cubic-bezier(.2,.8,.3,1), border-color .18s, background .18s;
+    animation:rowIn .28s cubic-bezier(.16,.84,.32,1) both;
+  }
+  @keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .row:hover{
+    transform:translateX(3px);
+    border-color:rgba(50,185,255,.6);
+    background:linear-gradient(180deg,rgba(20,46,84,.72),rgba(11,27,52,.62));
+  }
+  .state{
+    width:14px;height:14px;border-radius:50%;flex:0 0 auto;cursor:pointer;
+    transition:transform .18s, box-shadow .2s;
+  }
+  .state:hover{transform:scale(1.22)}
+  .state.todo{background:radial-gradient(circle at 34% 30%,#FF93A4,#FF526B 62%,#8E1B32);
+    box-shadow:0 0 10px rgba(255,82,107,.55)}
+  .state.doing{background:radial-gradient(circle at 34% 30%,#FFD89A,#FFB648 62%,#8A5A0B);
+    box-shadow:0 0 10px rgba(255,182,72,.55);animation:breathe 1.8s ease-in-out infinite}
+  .state.done{background:radial-gradient(circle at 34% 30%,#9BF6DC,#39E8B4 62%,#116A50);
+    box-shadow:0 0 10px rgba(57,232,180,.5)}
+  @keyframes breathe{0%,100%{box-shadow:0 0 8px rgba(255,182,72,.45)}50%{box-shadow:0 0 16px rgba(255,182,72,.8)}}
+
+  .body{flex:1;min-width:0}
+  .name{font-size:13.5px;line-height:1.35;word-break:break-all}
+  .row.done .name{color:var(--text-3);text-decoration:line-through}
+  .meta{display:flex;gap:8px;align-items:center;margin-top:4px;font-size:11px;color:var(--text-3)}
+  .proj{padding:1px 7px;border-radius:6px;background:rgba(19,123,255,.14);
+    border:1px solid rgba(50,185,255,.24);color:#9FD4FF}
+  .spent{color:var(--text-3)}
+  .del{
+    opacity:0;flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:none;
+    background:rgba(255,82,107,.12);color:#FF9DAE;cursor:pointer;font-size:15px;
+    transition:.16s;line-height:1;
+  }
+  .row:hover .del{opacity:1}
+  .del:hover{background:rgba(255,82,107,.26);color:#fff}
+
+  .empty{padding:40px 0;text-align:center;color:var(--text-3);font-size:12.5px;line-height:1.9}
+
+  .composer{padding:12px 16px 16px;border-top:1px solid rgba(30,75,122,.5);
+    background:linear-gradient(180deg,rgba(4,12,28,0),rgba(4,12,28,.55))}
+  .inputs{display:flex;gap:8px}
+  input,select{
+    font-family:inherit;font-size:13px;color:var(--text);
+    background:rgba(6,18,38,.9);border:1px solid rgba(30,75,122,.8);
+    border-radius:11px;padding:11px 13px;outline:none;transition:.18s;
+  }
+  input::placeholder{color:#4A6C8F}
+  input:focus,select:focus{border-color:rgba(50,185,255,.75);box-shadow:0 0 0 3px rgba(34,215,255,.10)}
+  #title{flex:1;min-width:0}
+  #project{width:132px}
+  .add{
+    flex:0 0 auto;padding:0 20px;border-radius:11px;border:1px solid rgba(50,185,255,.55);
+    background:linear-gradient(180deg,#1B8BFF,#0F55C8);color:#fff;font-size:13px;font-weight:600;
+    cursor:pointer;transition:.18s;box-shadow:0 6px 18px rgba(19,123,255,.32);
+  }
+  .add:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .add:active{transform:translateY(0) scale(.985)}
+  .hint{font-size:10.5px;color:var(--text-3);margin-top:9px;display:flex;justify-content:space-between}
+
+  /* 未配对时的引导卡片 */
+  .pair{padding:22px;display:none}
+  .pair.on{display:block;animation:rowIn .3s both}
+  .pair h3{font-size:14px;margin-bottom:8px}
+  .pair p{font-size:12px;color:var(--text-2);line-height:1.85}
+  .code{
+    margin:16px 0;padding:18px;border-radius:16px;text-align:center;
+    background:radial-gradient(circle at 50% 0%,rgba(19,123,255,.22),rgba(6,18,38,.9));
+    border:1px solid rgba(50,185,255,.4);
+    font-size:34px;letter-spacing:10px;font-weight:700;color:#CFF3FF;
+    text-shadow:0 0 22px rgba(34,215,255,.6);
+  }
+  .pair .btn{
+    display:block;width:100%;padding:12px;border-radius:11px;cursor:pointer;font-size:13px;
+    border:1px solid rgba(50,185,255,.55);color:#fff;font-weight:600;
+    background:linear-gradient(180deg,#1B8BFF,#0F55C8);margin-top:10px;
+  }
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:rgba(12,27,53,.96);border:1px solid rgba(50,185,255,.45);
+    color:#DFF3FF;font-size:12px;padding:9px 16px;border-radius:10px;opacity:0;
+    transition:.24s;pointer-events:none;box-shadow:0 10px 30px rgba(0,6,20,.6);
+  }
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="logo"></div>
+    <div>
+      <div class="title">ORBYTE</div>
+      <div class="sub" id="sub">正在连接…</div>
+    </div>
+    <div class="grow"></div>
+    <div class="pill" id="syncPill"><span class="dot-live" id="syncDot"></span><span id="syncText">同步中</span></div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab on" data-space="work">工作<span class="n" id="n-work">0</span></div>
+    <div class="tab" data-space="life">生活<span class="n" id="n-life">0</span></div>
+  </div>
+
+  <div class="pair" id="pairCard">
+    <h3>连接你的日清应用</h3>
+    <p>在浏览器里打开下面的地址并点「允许」，这台电脑就能开始同步<strong>工作待办</strong>。生活待办只留在本机，永不上传。</p>
+    <div class="code" id="pairCode">------</div>
+    <button class="btn" id="pairOpen">打开浏览器授权</button>
+    <button class="btn" id="pairRefresh" style="background:rgba(19,123,255,.16)">重新获取配对码</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="composer">
+    <div class="inputs">
+      <input id="title" placeholder="记一件要办的事…" maxlength="200" />
+      <input id="project" placeholder="项目" maxlength="40" list="projects" />
+      <datalist id="projects"></datalist>
+      <button class="add" id="addBtn">添加</button>
+    </div>
+    <div class="hint">
+      <span id="hintLeft">回车快速添加</span>
+      <span id="hintRight"></span>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const TOKEN = "__ORBYTE_TOKEN__";
+  let state = null;
+  let space = "work";
+
+  const $ = (id) => document.getElementById(id);
+  const api = async (method, path, body) => {
+    const res = await fetch(path, {
+      method,
+      headers: { "Content-Type": "application/json", "X-Orbyte-Token": TOKEN },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    return data;
+  };
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("on"), 1800);
+  }
+
+  function fmtSpent(sec) {
+    if (!sec || sec < 60) return "";
+    const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+    return h ? `${h}h${m}m` : `${m}m`;
+  }
+
+  function render() {
+    if (!state) return;
+    const items = state[space] || [];
+    const list = $("list");
+    list.innerHTML = "";
+
+    if (!items.length) {
+      const div = document.createElement("div");
+      div.className = "empty";
+      div.innerHTML = space === "work"
+        ? "还没有工作待办<br>下面输入框记一条"
+        : "生活待办只存本机<br>用来放私事，永不上传";
+      list.appendChild(div);
+    }
+
+    items.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "row" + (item.state === "done" ? " done" : "");
+      row.style.animationDelay = Math.min(i * 22, 220) + "ms";
+
+      const dot = document.createElement("div");
+      dot.className = "state " + item.state;
+      dot.title = { todo: "未开始", doing: "进行中", done: "已完成" }[item.state];
+      dot.onclick = () => cycle(item);
+      row.appendChild(dot);
+
+      const body = document.createElement("div");
+      body.className = "body";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = item.title;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      if (item.project) {
+        const p = document.createElement("span");
+        p.className = "proj";
+        p.textContent = item.project;
+        meta.appendChild(p);
+      }
+      const spent = fmtSpent(item.spent_sec);
+      if (spent) {
+        const s = document.createElement("span");
+        s.className = "spent";
+        s.textContent = "已用 " + spent;
+        meta.appendChild(s);
+      }
+      if (space === "work" && item.sync_state === "synced") {
+        const s = document.createElement("span");
+        s.textContent = "已同步";
+        meta.appendChild(s);
+      }
+      body.appendChild(name);
+      if (meta.childNodes.length) body.appendChild(meta);
+      row.appendChild(body);
+
+      const del = document.createElement("button");
+      del.className = "del";
+      del.textContent = "×";
+      del.title = "删除";
+      del.onclick = () => remove(item);
+      row.appendChild(del);
+
+      list.appendChild(row);
+    });
+
+    $("n-work").textContent = (state.work || []).length;
+    $("n-life").textContent = (state.life || []).length;
+    $("sub").textContent = state.paired
+      ? `${state.device} · v${state.version}`
+      : "尚未连接到日清应用";
+
+    const sync = state.sync || {};
+    const dot = $("syncDot");
+    dot.className = "dot-live" + (
+      sync.state === "offline" ? " off" :
+      (sync.state === "unauthorized" || sync.state === "error") ? " bad" : ""
+    );
+    $("syncText").textContent = ({
+      idle: sync.pending > 0 ? `${sync.pending} 条待上传` : "已同步",
+      syncing: "上传中",
+      offline: "离线 · 已存本机",
+      unauthorized: "需重新配对",
+      error: "同步异常",
+    })[sync.state] || "已同步";
+
+    $("pairCard").classList.toggle("on", !state.paired);
+    $("hintRight").textContent = state.paired ? "" : "未连接时也能用，联网后自动补传";
+
+    const projects = [...new Set((state.work || []).map(t => t.project).filter(Boolean))];
+    $("projects").innerHTML = projects.map(p => `<option value="${p.replace(/"/g, "")}">`).join("");
+  }
+
+  async function load() {
+    try {
+      state = await api("GET", "/api/state");
+      render();
+      // 首次读到状态后才知道有没有配对，这时才去要码（避免已配对还去出码）
+      if (!state.paired && !pairUrl) startPair();
+    } catch (err) {
+      toast("读取失败：" + err.message);
+    }
+  }
+
+  async function cycle(item) {
+    const next = item.state === "todo" ? "doing" : item.state === "doing" ? "done" : "todo";
+    try {
+      state = await api("POST", `/api/todos/${item.uuid}/state`, { state: next });
+      render();
+    } catch (err) { toast(err.message); }
+  }
+
+  async function remove(item) {
+    try {
+      state = await api("DELETE", `/api/todos/${item.uuid}`);
+      render();
+      toast("已删除");
+    } catch (err) { toast(err.message); }
+  }
+
+  async function add() {
+    const title = $("title").value.trim();
+    if (!title) { $("title").focus(); return; }
+    const project = $("project").value.trim();
+    try {
+      state = await api("POST", "/api/todos", { title, project, space });
+      $("title").value = "";
+      render();
+      $("title").focus();
+    } catch (err) { toast(err.message); }
+  }
+
+  $("addBtn").onclick = add;
+  $("title").addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  $("project").addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.onclick = () => {
+      space = tab.dataset.space;
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === tab));
+      render();
+    };
+  });
+
+  let pairUrl = "";
+  async function startPair() {
+    try {
+      const res = await api("POST", "/api/pair/start");
+      $("pairCode").textContent = res.code || "------";
+      pairUrl = res.confirm_url || "";
+      if (res.error) toast(res.error);
+    } catch (err) {
+      $("pairCode").textContent = "------";
+      toast("获取配对码失败：" + err.message);
+    }
+  }
+  $("pairOpen").onclick = () => {
+    if (!state || !state.paired) startPair();
+    if (pairUrl) window.open(pairUrl, "_blank");
+  };
+  $("pairRefresh").onclick = startPair;
+
+  load();
+  setInterval(load, 4000);
+</script>
+</body>
+</html>
