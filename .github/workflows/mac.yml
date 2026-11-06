@@ -1,0 +1,77 @@
+# ORBYTE macOS 构建（一次性打包用）
+#
+# 为什么放在 GitHub 而不是 GitLab：GitLab.com 的 macOS runner 只对
+# Premium/Ultimate 开放且要申请白名单；GitHub 公共仓库的 macOS runner
+# 完全免费、不扣额度、不用绑卡。
+#
+# 手动触发，不给外部 PR 跑（公共仓库里外部 PR 能改构建脚本读 secrets）。
+# 仓库根 = ORBYTE 目录，所以所有路径都是相对 ORBYTE 的。
+
+name: build-mac
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mac:
+    runs-on: macos-14          # Apple Silicon（arm64）
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyQt5 pyinstaller pillow
+          python -c "import PyQt5.QtCore as q; print('Qt', q.QT_VERSION_STR)"
+
+      - name: 生成图标（ico → png / icns）
+        continue-on-error: true   # 缺图标不该拦住打包，spec 会回落到默认图标
+        run: python scripts/make_icons.py
+
+      - name: 注入服务器地址
+        env:
+          SERVER_URL: ${{ secrets.ORBYTE_SERVER_URL }}
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          url = os.environ.get("SERVER_URL", "").strip().rstrip("/")
+          path = pathlib.Path("src/orbyte/_build_info.py")
+          text = path.read_text(encoding="utf-8")
+          if not url:
+              print("::warning::ORBYTE_SERVER_URL 未配置，产物仍指向 127.0.0.1:3000，同事连不上")
+          else:
+              path.write_text(
+                  re.sub(r'BUILD_SERVER_URL = ".*"', f'BUILD_SERVER_URL = "{url}"', text),
+                  encoding="utf-8",
+              )
+              print("已注入服务器地址:", url)
+          PY
+
+      - name: 打包
+        run: python -m PyInstaller --noconfirm --clean orbyte-mac.spec
+
+      - name: 校验产物
+        run: |
+          ls -la dist
+          test -d dist/ORBYTE.app || (echo "::error::没有生成 ORBYTE.app" && exit 1)
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" dist/ORBYTE.app/Contents/Info.plist
+          grep -q "BUILD_SERVER_URL = \"\"" src/orbyte/_build_info.py \
+            && echo "::warning::地址仍是空值，确认 ORBYTE_SERVER_URL 是否配了"
+
+      - name: 压缩 .app
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent ORBYTE.app ORBYTE-mac.zip
+          ls -lh ORBYTE-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ORBYTE-mac
+          path: dist/ORBYTE-mac.zip
+          if-no-files-found: error
+          retention-days: 7
