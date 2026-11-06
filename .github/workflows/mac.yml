@@ -1,4 +1,4 @@
-# ORBYTE macOS 构建（一次性打包用）
+﻿# ORBYTE macOS 构建（一次性打包用）
 #
 # 为什么放在 GitHub 而不是 GitLab：GitLab.com 的 macOS runner 只对
 # Premium/Ultimate 开放且要申请白名单；GitHub 公共仓库的 macOS runner
@@ -14,7 +14,11 @@ on:
 
 jobs:
   mac:
-    runs-on: macos-latest          # Apple Silicon（arm64）
+    # Apple Silicon（arm64）。不要写 macos-14：该标签已从 GitHub 的
+    # 公共仓库 runner 清单中退役，会报
+    # "The configuration 'macos-14-arm64-us-default' is not supported"。
+    # 老 Intel Mac 用 macos-15-intel（另一份 workflow）。
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -58,10 +62,20 @@ jobs:
       - name: 校验产物
         run: |
           ls -la dist
-          test -d dist/ORBYTE.app || (echo "::error::没有生成 ORBYTE.app" && exit 1)
+          if [ ! -d dist/ORBYTE.app ]; then
+            echo "::error::没有生成 ORBYTE.app"
+            exit 1
+          fi
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" dist/ORBYTE.app/Contents/Info.plist
-          grep -q "BUILD_SERVER_URL = \"\"" src/orbyte/_build_info.py \
-            && echo "::warning::地址仍是空值，确认 ORBYTE_SERVER_URL 是否配了"
+          du -sh dist/ORBYTE.app
+          # 注意：不能让「grep 不匹配」把这一步判为失败（bash 带 -e）。
+          # 地址为空 → 警告；已注入 → 打印出来备查。两条路都返回 0。
+          if grep -q 'BUILD_SERVER_URL = ""' src/orbyte/_build_info.py; then
+            echo "::warning::地址仍是空值，确认 ORBYTE_SERVER_URL 是否配了"
+          else
+            grep -n 'BUILD_SERVER_URL' src/orbyte/_build_info.py
+            echo "地址已注入"
+          fi
 
       - name: 压缩 .app
         run: |
